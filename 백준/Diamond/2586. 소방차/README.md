@@ -4,7 +4,7 @@
 
 ### 성능 요약
 
-메모리: 46980 KB, 시간: 532 ms
+메모리: 140012 KB, 시간: 220 ms
 
 ### 분류
 
@@ -12,13 +12,13 @@
 
 ### 제출 일자
 
-2024년 5월 14일 16:04:17
+2024년 5월 14일 21:50:04
 
 ### 문제 설명
 
 <p>직선 위에 여러 개의 소방 펌프가 있다. 여러 대의 소방차가 물을 채우기 위해서 급하게 이 직선 위에 정차했다. 펌프의 수는 소방차의 수 보다 크거나 같다.</p>
 
-<p style="text-align: center;"><img alt="" src="" style="width: 259px; height: 57px;"></p>
+<p style="text-align: center;"><img alt="" src="https://upload.acmicpc.net/b0908ee8-4f50-43e6-8e62-bbd9915ce514/-/preview/" style="width: 259px; height: 57px;"></p>
 
 <p>그림에는 두 대의 소방차 (위치는 27과 73)가 세 개의 펌프 (위치는 12, 50, 81) 사이에 정차한 것을 보여 주고 있다.</p>
 
