@@ -1,17 +1,9 @@
 class Solution {
-    public int solution(int[] numbers, int target) {
-        return dfs(numbers, target, 0, 0);
+    public int solution(int[] n, int t) {
+        return f(n, t, 0, 0);
     }
 
-    public int dfs(int[] numbers, int target, int index, int sum) {
-        if(index == numbers.length) {
-            if(sum == target) {
-                return 1;
-            }
-            return 0;
-        }
-        
-        return dfs(numbers, target, index + 1, sum + numbers[index]) 
-             + dfs(numbers, target, index + 1, sum - numbers[index]);
+    public int f(int[] n, int t, int i, int s) {
+        return i == n.length ? (s == t ? 1 : 0) : f(n, t, i + 1, s + n[i]) + f(n, t, i + 1, s - n[i]);
     }
 }
