@@ -1,144 +1,77 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-using ll = long long;
+using pii = pair<int,int>;
 
-/* ---------- Fast Scanner ---------- */
-struct FastScanner {
-    static const int S = 1 << 20;
-    int idx = 0, sz = 0; char buf[S];
-    inline char gc() {
-        if (idx >= sz) { sz = (int)fread(buf,1,S,stdin); idx = 0; if (!sz) return 0; }
-        return buf[idx++];
-    }
-    template<typename T>
-    bool next(T &out) {
-        char c = gc(); if (!c) return false;
-        T sign = 1, x = 0;
-        while (c!='-' && (c<'0'||c>'9')) { c = gc(); if (!c) return false; }
-        if (c=='-') { sign = -1; c = gc(); }
-        for (; c>='0' && c<='9'; c = gc()) x = x*10 + (c - '0');
-        out = x*sign; return true;
-    }
-} In;
 
-/* ---------- LIS (strict) for integers ---------- */
-int LIS_strict(const vector<int> &a) {
-    vector<int> tail; tail.reserve(a.size());
-    for (int x : a) {
-        auto it = lower_bound(tail.begin(), tail.end(), x); // distinct -> strict
-        if (it == tail.end()) tail.push_back(x);
-        else *it = x;
-    }
-    return (int)tail.size();
+static vector<pair<int, pii>> cols;       // size = N
+static vector<pii> pairs_23;              // (row2, row3)만 뽑아낸 점열
+static vector< set<pii> > layers;         // dp 레이어: 각 길이 L(+1)에 대한 frontier (set of (x,y))
+
+
+static inline bool can_extend_from_layer(int p, const pii &q) {
+    auto it = layers[p].upper_bound({q.first, INT_MAX}); // first > q.x 인 첫 위치
+    if (it == layers[p].begin()) return false;           // x <= q.x 인 점이 없음
+    --it;                                                // x <= q.x 중 최댓값
+    return (it->second < q.second);                      // y도 엄격히 작아야 증가
 }
 
-/* ---------- 3D LIS via CDQ + Fenwick(Max) ---------- */
-struct Node {
-    int y, z, id; // x는 배열 인덱스로 이미 오름차순
-};
-struct FenwickMax {
-    int n, ver = 1;
-    vector<int> bit, vis;
-    FenwickMax(int n=0){ init(n); }
-    void init(int _n){ n=_n; bit.assign(n+2,0); vis.assign(n+2,0); ver=1; }
-    inline void reset_step(){ ++ver; if (ver==INT_MAX){ // 안전
-        fill(bit.begin(), bit.end(), 0);
-        fill(vis.begin(), vis.end(), 0);
-        ver = 1;
-    }}
-    inline void add(int i, int v){
-        for (; i<=n; i+=i&-i){
-            if (vis[i]!=ver){ vis[i]=ver; bit[i]=0; }
-            if (bit[i] < v) bit[i] = v;
-        }
-    }
-    inline int query(int i){
-        int res = 0;
-        for (; i>0; i-=i&-i)
-            if (vis[i]==ver && bit[i]>res) res = bit[i];
-        return res;
-    }
-};
-
-void cdq(int l, int r, vector<Node> &a, vector<Node> &tmp, FenwickMax &fw, vector<int> &dp){
-    if (l == r) { dp[a[l].id] = max(dp[a[l].id], 1); return; }
-    int mid = (l + r) >> 1;
-    cdq(l, mid, a, tmp, fw, dp);
-    cdq(mid+1, r, a, tmp, fw, dp);
-
-    fw.reset_step();
-    int i = l, j = mid+1, k = l;
-
-    // 두 구간이 y 오름차순으로 병합되도록 유지
-    while (i <= mid && j <= r) {
-        if (a[i].y < a[j].y) {
-            fw.add(a[i].z, dp[a[i].id]);     // 왼쪽 점들만 누적
-            tmp[k++] = a[i++];
-        } else {
-            int best = fw.query(a[j].z - 1); // z도 엄밀히 작아야 함
-            if (best + 1 > dp[a[j].id]) dp[a[j].id] = best + 1;
-            tmp[k++] = a[j++];
-        }
-    }
-    while (j <= r) {
-        int best = fw.query(a[j].z - 1);
-        if (best + 1 > dp[a[j].id]) dp[a[j].id] = best + 1;
-        tmp[k++] = a[j++];
-    }
-    while (i <= mid) {
-        fw.add(a[i].z, dp[a[i].id]);
-        tmp[k++] = a[i++];
-    }
-    for (int t=l; t<=r; ++t) a[t] = tmp[t]; // y 오름차순 유지
-}
-
-int main(){
+int main() {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
     int M, N;
-    if (!In.next(M)) return 0;
-    In.next(N);
+    cin >> M >> N;
 
-    // 원본 값 읽기
-    vector<vector<ll>> Q(M, vector<ll>(N));
-    for (int i=0;i<M;i++)
-        for (int j=0;j<N;j++)
-            In.next(Q[i][j]);
+    cols.resize(N);
 
-    // 각 행의 전역 랭크 r[i][col] (1=가장 큼)
-    vector<vector<int>> r(M, vector<int>(N));
-    for (int i=0;i<M;i++){
-        vector<int> idx(N); iota(idx.begin(), idx.end(), 0);
-        sort(idx.begin(), idx.end(), [&](int a, int b){
-            if (Q[i][a] != Q[i][b]) return Q[i][a] > Q[i][b]; // 값 내림차순
-            return a < b; // 안정성(실제론 필요없음)
-        });
-        for (int pos=0; pos<N; ++pos) r[i][ idx[pos] ] = pos + 1;
+    // 입력: 첫 행
+    for (int j = 0; j < N; ++j) cin >> cols[j].first;       // row1
+    // 입력: 둘째 행
+    for (int j = 0; j < N; ++j) cin >> cols[j].second.first; // row2
+    // 입력: 셋째 행(있을 때만)
+    if (M == 3) {
+        for (int j = 0; j < N; ++j) cin >> cols[j].second.second; // row3
     }
 
+    // row1 오름차순 정렬
+    sort(cols.begin(), cols.end());
+
+    // (row2, row3)만 추출
+    pairs_23.reserve(N);
+    for (auto &col : cols) pairs_23.push_back(col.second);
+
+    // M=2일 때는 (row2, index)로 만들어 x가 같아도 index로 엄격성 보장(여기선 값 전역 유일이라 사실 불필요)
     if (M == 2) {
-        // r1 오름차순 순서에서의 r2 수열의 LIS
-        vector<int> seq(N);
-        for (int col=0; col<N; ++col) seq[ r[0][col] - 1 ] = r[1][col];
-        cout << LIS_strict(seq) << '\n';
-        return 0;
+        for (int i = 0; i < N; ++i) pairs_23[i].second = i;
     }
 
-    // M == 3
-    // x=r1 오름차순(=인덱스), 각 위치의 (y=r2, z=r3)
-    vector<Node> a(N), tmp(N);
-    for (int col=0; col<N; ++col) {
-        int x = r[0][col] - 1;
-        a[x] = Node{ r[1][col], r[2][col], x };
+    // 2D LIS: layers를 유지하면서 점들을 순차 처리
+    // layers[L]: 길이 L+1인 증가 사슬을 만들 때의 frontier 집합
+    for (const auto &pt : pairs_23) {
+        // 이분탐색으로 들어갈 레이어 찾기
+        int lo = 0, hi = (int)layers.size();
+        while (lo < hi) {
+            int mid = (lo + hi) >> 1;
+            if (can_extend_from_layer(mid, pt)) lo = mid + 1;
+            else                                hi = mid;
+        }
+        // lo가 삽입할 레이어 인덱스 (길이 lo+1 사슬)
+        if (lo == (int)layers.size()) {
+            layers.emplace_back();
+            layers.back().insert(pt);
+        } else {
+            // layers[lo]에 pt를 삽입하되,
+            // (x가 더 크거나 같고, y가 pt.y 이상인 점)들은 지배되어 제거
+            auto it = layers[lo].upper_bound({pt.first, INT_MAX}); // first > pt.x
+            while (it != layers[lo].end() && it->second >= pt.second) {
+                it = layers[lo].erase(it);
+            }
+            layers[lo].insert(it, pt);
+        }
     }
-    vector<int> dp(N, 1);
-    FenwickMax fw(N);
-    cdq(0, N-1, a, tmp, fw, dp);
 
-    int ans = 0;
-    for (int v : dp) if (v > ans) ans = v;
-    cout << ans << '\n';
+    // layers의 수 = 최대 길이
+    cout << layers.size() << '\n';
     return 0;
 }
